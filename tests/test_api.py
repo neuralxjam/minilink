@@ -1,20 +1,10 @@
-import pytest
 from fastapi.testclient import TestClient
+from sqlmodel import Session, select
 
-from app import store
-from app.main import app
-
-client = TestClient(app)
+from app.models import Link
 
 
-@pytest.fixture(autouse=True)
-def clean_store():
-    store._reset()
-    yield
-    store._reset()
-
-
-def test_shorten_returns_code_and_short_url():
+def test_shorten_returns_code_and_short_url(client: TestClient):
     resp = client.post("/shorten", json={"url": "https://example.com"})
     assert resp.status_code == 201
     data = resp.json()
@@ -23,12 +13,12 @@ def test_shorten_returns_code_and_short_url():
     assert data["code"] in data["short_url"]
 
 
-def test_shorten_code_is_six_chars():
+def test_shorten_code_is_six_chars(client: TestClient):
     resp = client.post("/shorten", json={"url": "https://example.com"})
     assert len(resp.json()["code"]) == 6
 
 
-def test_redirect_follows_to_original_url():
+def test_redirect_follows_to_original_url(client: TestClient):
     resp = client.post("/shorten", json={"url": "https://example.com"})
     code = resp.json()["code"]
     redir = client.get(f"/{code}", follow_redirects=False)
@@ -36,20 +26,21 @@ def test_redirect_follows_to_original_url():
     assert "example.com" in redir.headers["location"]
 
 
-def test_redirect_unknown_code_returns_404():
+def test_redirect_unknown_code_returns_404(client: TestClient):
     resp = client.get("/doesnotexist", follow_redirects=False)
     assert resp.status_code == 404
 
 
-def test_shorten_rejects_non_url():
+def test_shorten_rejects_non_url(client: TestClient):
     resp = client.post("/shorten", json={"url": "not-a-url"})
     assert resp.status_code == 422
 
 
-def test_hit_counter_increments():
+def test_hit_counter_increments(client: TestClient, session: Session):
     resp = client.post("/shorten", json={"url": "https://example.com"})
     code = resp.json()["code"]
     client.get(f"/{code}", follow_redirects=False)
     client.get(f"/{code}", follow_redirects=False)
-    entry = store.get_all()[0]
-    assert entry["hits"] == 2
+    session.expire_all()
+    link = session.exec(select(Link).where(Link.code == code)).first()
+    assert link.hits == 2

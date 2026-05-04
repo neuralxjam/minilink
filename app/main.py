@@ -1,14 +1,39 @@
 import os
+import secrets
+import string
+from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import RedirectResponse
 from pydantic import AnyHttpUrl, BaseModel
+from sqlmodel import Session, select
 
-from .store import create_link, resolve_link
+from .db import create_db_and_tables, get_session
+from .models import Link
 
-app = FastAPI(title="MiniLink", version="0.1.0")
-
+ALPHABET = string.ascii_letters + string.digits
 BASE_URL = os.getenv("BASE_URL", "http://localhost:8000")
+
+
+def _generate_code(length: int = 6) -> str:
+    return "".join(secrets.choice(ALPHABET) for _ in range(length))
+
+
+def _unique_code(session: Session) -> str:
+    for _ in range(10):
+        code = _generate_code()
+        if not session.exec(select(Link).where(Link.code == code)).first():
+            return code
+    raise RuntimeError("could not generate unique code after 10 attempts")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    create_db_and_tables()
+    yield
+
+
+app = FastAPI(title="MiniLink", version="0.1.0", lifespan=lifespan)
 
 
 class ShortenRequest(BaseModel):
@@ -21,14 +46,22 @@ class ShortenResponse(BaseModel):
 
 
 @app.post("/shorten", response_model=ShortenResponse, status_code=201)
-def shorten(body: ShortenRequest) -> ShortenResponse:
-    code = create_link(str(body.url))
+def shorten(
+    body: ShortenRequest, session: Session = Depends(get_session)
+) -> ShortenResponse:
+    code = _unique_code(session)
+    link = Link(code=code, url=str(body.url))
+    session.add(link)
+    session.commit()
     return ShortenResponse(code=code, short_url=f"{BASE_URL}/{code}")
 
 
 @app.get("/{code}")
-def redirect(code: str) -> RedirectResponse:
-    url = resolve_link(code)
-    if url is None:
+def redirect(code: str, session: Session = Depends(get_session)) -> RedirectResponse:
+    link = session.exec(select(Link).where(Link.code == code)).first()
+    if link is None:
         raise HTTPException(status_code=404, detail="short code not found")
-    return RedirectResponse(url=url, status_code=302)
+    link.hits += 1
+    session.add(link)
+    session.commit()
+    return RedirectResponse(url=link.url, status_code=302)
