@@ -1,8 +1,10 @@
+import fakeredis
 import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, SQLModel, create_engine
 from sqlmodel.pool import StaticPool
 
+import app.cache as cache_module
 import app.db as db_module
 from app.db import get_session
 from app.main import app
@@ -20,11 +22,18 @@ def session_fixture():
         yield session
 
 
+@pytest.fixture(autouse=True)
+def fake_redis(monkeypatch):
+    monkeypatch.setattr(
+        cache_module,
+        "_redis",
+        fakeredis.FakeRedis(decode_responses=True),
+    )
+
+
 @pytest.fixture(name="client")
 def client_fixture(session: Session, monkeypatch):
-    # prevent lifespan from connecting to Postgres
     monkeypatch.setattr(db_module, "create_db_and_tables", lambda: None)
-
     app.dependency_overrides[get_session] = lambda: session
     yield TestClient(app)
     app.dependency_overrides.clear()

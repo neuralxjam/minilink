@@ -6,8 +6,10 @@ from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import RedirectResponse
 from pydantic import AnyHttpUrl, BaseModel
+from sqlalchemy import update as sa_update
 from sqlmodel import Session, select
 
+from .cache import cache_del, cache_get, cache_set
 from .db import create_db_and_tables, get_session
 from .models import Link
 
@@ -53,15 +55,29 @@ def shorten(
     link = Link(code=code, url=str(body.url))
     session.add(link)
     session.commit()
+    cache_set(code, link.url)  # write-through
     return ShortenResponse(code=code, short_url=f"{BASE_URL}/{code}")
 
 
 @app.get("/{code}")
 def redirect(code: str, session: Session = Depends(get_session)) -> RedirectResponse:
-    link = session.exec(select(Link).where(Link.code == code)).first()
-    if link is None:
-        raise HTTPException(status_code=404, detail="short code not found")
-    link.hits += 1
-    session.add(link)
+    url = cache_get(code)
+
+    if url is None:
+        # cache miss — fetch from DB and warm the cache
+        link = session.exec(select(Link).where(Link.code == code)).first()
+        if link is None:
+            raise HTTPException(status_code=404, detail="short code not found")
+        cache_set(code, link.url)
+        url = link.url
+    else:
+        # cache hit — verify the code still exists (handles deleted links)
+        exists = session.exec(select(Link.id).where(Link.code == code)).first()
+        if exists is None:
+            cache_del(code)
+            raise HTTPException(status_code=404, detail="short code not found")
+
+    # increment hits without a full SELECT on the hot path
+    session.execute(sa_update(Link).where(Link.code == code).values(hits=Link.hits + 1))
     session.commit()
-    return RedirectResponse(url=link.url, status_code=302)
+    return RedirectResponse(url=url, status_code=302)

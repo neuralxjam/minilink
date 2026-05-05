@@ -5,9 +5,12 @@ services:
       - "8000:8000"
     environment:
       DATABASE_URL: postgresql://minilink:minilink@db:5432/minilink
+      REDIS_URL: redis://redis:6379/0
       BASE_URL: http://localhost:8000
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
   db:
@@ -22,6 +25,14 @@ services:
       test: ["CMD-SHELL", "pg_isready -U minilink"]
       interval: 5s
       timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
       retries: 5
 
 volumes:
