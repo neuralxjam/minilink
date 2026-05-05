@@ -6,7 +6,7 @@
 - Python 3.11.9
 - Docker Desktop (for the multi-container local stack)
 - GitHub account
-- fly.io account — free tier is enough
+- Railway account — free Hobby plan is enough ([railway.app](https://railway.app))
 
 ## Step 1 — Install required Claude Code plugins
 
@@ -53,52 +53,35 @@ curl -i http://localhost:8000/abc123
 # → 302 Location: https://example.com
 ```
 
-## Step 5 — Deploy to fly.io (first time)
+## Step 5 — Deploy to Railway (first time)
 
-Install flyctl and log in:
+Railway deploys from GitHub directly — no CLI needed for initial setup.
 
-```bash
-brew install flyctl       # macOS
-# or: https://fly.io/docs/hands-on/install-flyctl/
-fly auth login
-```
+1. Go to [railway.app](https://railway.app) → **New Project** → **Deploy from GitHub repo** → select `neuralxjam/minilink`. Railway detects `railway.toml` and builds using the Dockerfile.
 
-Create the app and provision managed Postgres + Redis:
+2. **Add Postgres** — click **+ New** → **Database** → **Add PostgreSQL**. Railway auto-injects `DATABASE_URL` into the API service.
 
-```bash
-fly apps create minilink
+3. **Add Redis** — click **+ New** → **Database** → **Add Redis**. Railway auto-injects `REDIS_URL`.
 
-fly postgres create --name minilink-db --region sin --vm-size shared-cpu-1x --volume-size 1
-fly postgres attach --app minilink minilink-db
+4. **Add `BASE_URL`** — API service → **Variables** tab → **+ New Variable**:
+   - Key: `BASE_URL`
+   - Value: (you'll fill this in after Step 5)
 
-fly redis create --name minilink-redis --region sin --plan free
-# copy the Redis URL from the output
-fly secrets set REDIS_URL="<redis-url-from-above>" --app minilink
-```
+5. **Generate the public domain** — API service → **Settings** → **Networking** → **Generate Domain**. Copy the `*.up.railway.app` hostname shown and paste it as the `BASE_URL` value from Step 4. Then set **Target Port** to **8080** in the same Networking section.
 
-Deploy:
+6. Trigger the first deploy — Railway usually auto-deploys after Step 1. If not, go to **Deployments** → **Deploy Now**.
 
-```bash
-fly deploy
-```
+The app will be live at the domain from Step 5.
 
-The app will be live at `https://minilink.fly.dev`.
+## Step 6 — CI auto-deploy
 
-## Step 6 — Wire up CI auto-deploy
+Railway's GitHub App watches the repository. Every push to `main` automatically triggers a Railway redeploy — no tokens or secrets needed beyond the initial GitHub connection in Step 5.
 
-Add `FLY_API_TOKEN` to GitHub repository secrets
-(`Settings → Secrets and variables → Actions → New repository secret`):
-
-```bash
-fly tokens create deploy -x 999999h   # generate a long-lived token
-# paste the output as the FLY_API_TOKEN secret value
-```
-
-From this point every push to `main` runs the full pipeline:
-**lint → test → build + push to GHCR → fly deploy**.
+The GitHub Actions workflow (`.github/workflows/`) runs **lint → test → build + push to GHCR** on every push. Railway then picks up the new commit and redeploys from the Dockerfile.
 
 ## Troubleshooting
 
 - **Port 8000 already in use**: `docker compose down` first, or change the host port in `docker-compose.yml`.
 - **Postgres connection refused on startup**: the healthcheck in `docker-compose.yml` gates the API on `pg_isready`; if it still fails, run `docker compose down -v` and `docker compose up` again.
-- **fly deploy fails with "app not found"**: ensure `fly apps create minilink` was run and the `app` field in `fly.toml` matches the created app name.
+- **502 Bad Gateway with `X-Railway-Fallback`**: check API service → **Settings → Networking → Target Port**. Must be **8080**, not 8000.
+- **`short_url` in API responses shows wrong domain**: update the `BASE_URL` variable in the API service's **Variables** tab to match the domain shown in Settings → Networking.

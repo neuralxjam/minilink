@@ -6,7 +6,7 @@
 
 MiniLink is a small but production-shaped URL shortener. It exposes a JSON API for creating short links and a redirect endpoint for resolving them, backed by Postgres for durable storage and Redis as a hot-path cache. A small HTMX dashboard surfaces top links and hits over time.
 
-The project's purpose is to demonstrate **DevOps fundamentals** in a tight scope: multi-stage Docker builds, Docker Compose for local multi-service dev, GHCR image publishing from CI, and a real cloud deploy on fly.io.
+The project's purpose is to demonstrate **DevOps fundamentals** in a tight scope: multi-stage Docker builds, Docker Compose for local multi-service dev, GHCR image publishing from CI, and a real cloud deploy on Railway.
 
 ## Stack
 
@@ -26,9 +26,7 @@ The project's purpose is to demonstrate **DevOps fundamentals** in a tight scope
 | `docker compose down -v` | Tear down and wipe volumes |
 | `pytest` | Run the test suite |
 | `ruff check .` | Lint |
-| `railway up` | Push the current image to Railway (after Day 7) |
-
-*(commands without a working implementation yet are placeholders; they get real on the day the corresponding feature lands)*
+| `railway up` | Push the current image to Railway (manual deploy; CI auto-deploys on push to main) |
 
 ## Architecture
 
@@ -52,7 +50,7 @@ Reads hit Redis first; on miss, fall through to Postgres and warm the cache. Wri
 - Branches: `main` is protected; feature work on `feat/<short-name>` branches
 - No auto-push to `main`. No `git push --force`. No skipping pre-commit hooks.
 - Pacing: ask before large multi-file refactors; small targeted edits preferred.
-- Python: 3.11.9 (see `.python-version` once created — fly.io builder respects it).
+- Python: 3.11.9 (pinned in `.python-version` and via the Dockerfile's `python:3.11.9-slim` base image).
 
 ## See also
 

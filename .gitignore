@@ -37,5 +37,5 @@ Thumbs.db
 *.local.yml
 docker-compose.override.yml
 
-# fly.io
-.fly/
+# Claude Code (per-machine, never committed)
+.claude/
