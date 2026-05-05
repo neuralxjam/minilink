@@ -44,3 +44,39 @@ def test_hit_counter_increments(client: TestClient, session: Session):
     session.expire_all()
     link = session.exec(select(Link).where(Link.code == code)).first()
     assert link.hits == 2
+
+
+# ── Dashboard ─────────────────────────────────────────────────────────────────
+
+
+def test_dashboard_renders(client: TestClient):
+    resp = client.get("/")
+    assert resp.status_code == 200
+    assert "MiniLink" in resp.text
+    assert "hx-post" in resp.text
+
+
+def test_dashboard_links_empty(client: TestClient):
+    resp = client.get("/dashboard/links")
+    assert resp.status_code == 200
+    assert "No links yet" in resp.text
+
+
+def test_dashboard_links_shows_entries(client: TestClient):
+    client.post("/shorten", json={"url": "https://example.com"})
+    resp = client.get("/dashboard/links")
+    assert resp.status_code == 200
+    assert "example.com" in resp.text
+
+
+def test_shorten_form_creates_link(client: TestClient):
+    resp = client.post("/shorten/form", data={"url": "https://example.com"})
+    assert resp.status_code == 200
+    assert resp.headers.get("HX-Trigger") == "linksUpdated"
+    assert "localhost:8000" in resp.text  # short_url in the result HTML
+
+
+def test_shorten_form_rejects_invalid_url(client: TestClient):
+    resp = client.post("/shorten/form", data={"url": "not-a-url"})
+    assert resp.status_code == 422
+    assert "Invalid URL" in resp.text

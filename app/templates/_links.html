@@ -1,0 +1,33 @@
+{% if links %}
+<table class="w-full text-sm">
+  <thead>
+    <tr class="text-left border-b border-gray-100">
+      <th class="pb-2 pr-4 font-medium text-gray-500">Code</th>
+      <th class="pb-2 pr-4 font-medium text-gray-500">URL</th>
+      <th class="pb-2 pr-4 font-medium text-gray-500 text-right">Hits</th>
+      <th class="pb-2 font-medium text-gray-500 text-right">Created</th>
+    </tr>
+  </thead>
+  <tbody class="divide-y divide-gray-50">
+    {% for link in links %}
+    <tr class="hover:bg-gray-50 transition-colors">
+      <td class="py-2 pr-4">
+        <a href="/{{ link.code }}" target="_blank"
+           class="font-mono text-indigo-600 hover:underline">{{ link.code }}</a>
+      </td>
+      <td class="py-2 pr-4 text-gray-600 max-w-xs">
+        <span class="block truncate" title="{{ link.url }}">
+          {{ link.url[:60] }}{% if link.url|length > 60 %}&hellip;{% endif %}
+        </span>
+      </td>
+      <td class="py-2 pr-4 text-right font-medium text-gray-800">{{ link.hits }}</td>
+      <td class="py-2 text-right text-gray-400">{{ link.created_at.strftime("%b %d") }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="text-sm text-gray-400 py-4 text-center">
+  No links yet — create your first one above.
+</p>
+{% endif %}
