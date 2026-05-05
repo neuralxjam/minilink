@@ -15,7 +15,7 @@ The project's purpose is to demonstrate **DevOps fundamentals** in a tight scope
 - Redis (read-through cache for short-code lookups)
 - Docker (multi-stage build) + Docker Compose (local orchestration)
 - GitHub Actions (lint → test → build image → push to GHCR → deploy)
-- fly.io (multi-container deploy target, free tier)
+- Railway (multi-container deploy target, free tier)
 - HTMX + Tailwind (dashboard UI)
 
 ## Common commands
@@ -26,7 +26,7 @@ The project's purpose is to demonstrate **DevOps fundamentals** in a tight scope
 | `docker compose down -v` | Tear down and wipe volumes |
 | `pytest` | Run the test suite |
 | `ruff check .` | Lint |
-| `fly deploy` | Push the current image to fly.io (after Day 7) |
+| `railway up` | Push the current image to Railway (after Day 7) |
 
 *(commands without a working implementation yet are placeholders; they get real on the day the corresponding feature lands)*
 

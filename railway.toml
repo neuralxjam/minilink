@@ -1,0 +1,15 @@
+[build]
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+
+[environments.production.variables]
+BASE_URL = "https://minilink.up.railway.app"
+
+# Secrets — set once in Railway dashboard or via CLI, never stored here:
+#   DATABASE_URL  (Railway Postgres plugin auto-injects this)
+#   REDIS_URL     (Railway Redis plugin auto-injects this)
