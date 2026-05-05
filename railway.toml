@@ -7,7 +7,7 @@ restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 3
 
 [environments.production.variables]
-BASE_URL = "https://minilink.up.railway.app"
+BASE_URL = "https://minilink-production.up.railway.app"
 
 # Secrets — set once in Railway dashboard or via CLI, never stored here:
 #   DATABASE_URL  (Railway Postgres plugin auto-injects this)
